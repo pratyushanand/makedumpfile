@@ -138,40 +138,6 @@ pmd_offset(pud_t *pud, unsigned long vaddr)
 	}
 }
 
-#define PAGE_OFFSET_39 (0xffffffffffffffffUL << 39)
-#define PAGE_OFFSET_42 (0xffffffffffffffffUL << 42)
-static int calculate_plat_config(void)
-{
-	unsigned long long stext;
-
-	/* Currently we assume that there are only two possible
-	 * configuration supported by kernel.
-	 * 1) Page Table Level:2, Page Size 64K and VA Bits 42
-	 * 1) Page Table Level:3, Page Size 4K and VA Bits 39
-	 * Ideally, we should have some mechanism to decide these values
-	 * from kernel symbols, but we have limited symbols in vmcore,
-	 * and we can not do much. So until some one comes with a better
-	 * way, we use following.
-	 */
-	stext = SYMBOL(_stext);
-
-	/* condition for minimum VA bits must be checked first and so on */
-	if ((stext & PAGE_OFFSET_39) == PAGE_OFFSET_39) {
-		pgtable_level = 3;
-		va_bits = 39;
-		page_shift = 12;
-	} else if ((stext & PAGE_OFFSET_42) == PAGE_OFFSET_42) {
-		pgtable_level = 2;
-		va_bits = 42;
-		page_shift = 16;
-	} else {
-		ERRMSG("Kernel Configuration not supported\n");
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 static int
 is_vtop_from_page_table_arm64(unsigned long vaddr)
 {
@@ -190,10 +156,9 @@ get_phys_base_arm64(void)
 	unsigned long long phys_start;
 	int i;
 
-	if (!calculate_plat_config()) {
-		ERRMSG("Can't determine platform config values\n");
-		return FALSE;
-	}
+	pgtable_level = NUMBER(pgtable_levels);
+	va_bits = NUMBER(va_bits);
+	page_shift = NUMBER(page_shift);
 
 	/*
 	 * We resolve phys_base from PT_LOAD segments. LMA contains physical

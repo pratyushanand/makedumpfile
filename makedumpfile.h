@@ -1678,6 +1678,9 @@ struct number_table {
 	long	KERNEL_IMAGE_SIZE;
 	long	SECTION_SIZE_BITS;
 	long	MAX_PHYSMEM_BITS;
+	long	pgtable_levels;
+	long 	va_bits;
+	long	page_shift;
 };
 
 struct srcfile_table {

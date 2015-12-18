@@ -2232,6 +2232,11 @@ write_vmcoreinfo_data(void)
 
 	WRITE_NUMBER("PAGE_BUDDY_MAPCOUNT_VALUE", PAGE_BUDDY_MAPCOUNT_VALUE);
 	WRITE_NUMBER("KERNEL_IMAGE_SIZE", KERNEL_IMAGE_SIZE);
+#ifdef __aarch64__
+	WRITE_NUMBER("pgtable_levels", pgtable_levels);
+	WRITE_NUMBER("va_bits", va_bits);
+	WRITE_NUMBER("page_shift", page_shift);
+#endif
 
 	/*
 	 * write the source file of 1st kernel
@@ -2567,6 +2572,11 @@ read_vmcoreinfo(void)
 
 	READ_NUMBER("PAGE_BUDDY_MAPCOUNT_VALUE", PAGE_BUDDY_MAPCOUNT_VALUE);
 	READ_NUMBER("KERNEL_IMAGE_SIZE", KERNEL_IMAGE_SIZE);
+#ifdef __aarch64__
+	READ_NUMBER("pgtable_levels", pgtable_levels);
+	READ_NUMBER("va_bits", va_bits);
+	READ_NUMBER("page_shift", page_shift);
+#endif
 
 	return TRUE;
 }
