@@ -110,15 +110,6 @@ static int pgtable_level;
 static int va_bits;
 static int page_shift;
 
-pmd_t *
-pmd_offset(pud_t *pud, unsigned long vaddr)
-{
-	if (pgtable_level == 2) {
-		return pmd_offset_pgtbl_lvl_2(pud, vaddr);
-	} else {
-		return pmd_offset_pgtbl_lvl_3(pud, vaddr);
-	}
-}
 int
 get_pgtable_level_arm64(void)
 {
@@ -135,6 +126,16 @@ int
 get_page_shift_arm64(void)
 {
 	return page_shift;
+}
+
+pmd_t *
+pmd_offset(pud_t *pud, unsigned long vaddr)
+{
+	if (pgtable_level == 2) {
+		return pmd_offset_pgtbl_lvl_2(pud, vaddr);
+	} else {
+		return pmd_offset_pgtbl_lvl_3(pud, vaddr);
+	}
 }
 
 #define PAGE_OFFSET_39 (0xffffffffffffffffUL << 39)
@@ -278,7 +279,7 @@ vtop_arm64(unsigned long vaddr)
 {
 	unsigned long long paddr = NOT_PADDR;
 	pgd_t	*pgda, pgdv;
-	pud_t	*puda, pudv;
+	pud_t	pudv;
 	pmd_t	*pmda, pmdv;
 	pte_t 	*ptea, ptev;
 
