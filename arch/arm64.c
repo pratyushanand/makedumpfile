@@ -35,14 +35,9 @@ typedef struct {
 	pud_t pud;
 } pmd_t;
 
-#define pud_offset(pgd, vaddr) 	((pud_t *)pgd)
-
 #define pgd_val(x)		((x).pgd)
 #define pud_val(x)		(pgd_val((x).pgd))
 #define pmd_val(x)		(pud_val((x).pud))
-
-#define PUD_SHIFT		PGDIR_SHIFT
-#define PUD_SIZE		(1UL << PUD_SHIFT)
 
 typedef struct {
 	unsigned long pte;
@@ -59,6 +54,9 @@ typedef struct {
 #define PMD_SIZE		(1UL << PMD_SHIFT)
 #define PMD_MASK		(~(PMD_SIZE - 1))
 #define PTRS_PER_PMD		PTRS_PER_PTE
+#define PUD_SHIFT		get_pud_shift_arm64()
+#define PUD_SIZE		(1UL << PUD_SHIFT)
+#define PUD_MASK		(~(PUD_SIZE - 1))
 
 #define PAGE_PRESENT		(1 << 0)
 #define SECTIONS_SIZE_BITS	30
@@ -95,6 +93,10 @@ typedef struct {
 #define pud_page_vaddr(pud)		(__va(pud_val(pud) & PHYS_MASK & (int32_t)PAGE_MASK))
 #define pmd_offset_pgtbl_lvl_3(pud, vaddr) ((pmd_t *)pud_page_vaddr((*pud)) + pmd_index(vaddr))
 
+#define PTRS_PER_PUD			PTRS_PER_PTE
+#define pud_index(vaddr)		(((vaddr) >> PUD_SHIFT) & (PTRS_PER_PUD - 1))
+#define pgd_page_vaddr(pgd)		(__va(pgd_val(pgd) & PHYS_MASK & (int32_t)PAGE_MASK))
+
 /* kernel struct page size can be kernel version dependent, currently
  * keep it constant.
  */
@@ -128,14 +130,32 @@ get_page_shift_arm64(void)
 	return page_shift;
 }
 
+static int
+get_pud_shift_arm64(void)
+{
+        if (pgtable_level == 4)
+                return ((PAGE_SHIFT - 3) * 3 + 3);
+        else
+                return PGDIR_SHIFT;
+}
+
 pmd_t *
-pmd_offset(pud_t *pud, unsigned long vaddr)
+pmd_offset(pud_t *puda, pud_t *pudv, unsigned long vaddr)
 {
 	if (pgtable_level == 2) {
-		return pmd_offset_pgtbl_lvl_2(pud, vaddr);
+		return pmd_offset_pgtbl_lvl_2(puda, vaddr);
 	} else {
-		return pmd_offset_pgtbl_lvl_3(pud, vaddr);
+		return pmd_offset_pgtbl_lvl_3(pudv, vaddr);
 	}
+}
+
+static pud_t *
+pud_offset(pgd_t *pgda, pgd_t *pgdv, unsigned long vaddr)
+{
+        if (pgtable_level == 4)
+                return ((pud_t *)pgd_page_vaddr((*pgdv)) + pud_index(vaddr));
+        else
+                return (pud_t *)(pgda);
 }
 
 static int
@@ -244,7 +264,7 @@ vtop_arm64(unsigned long vaddr)
 {
 	unsigned long long paddr = NOT_PADDR;
 	pgd_t	*pgda, pgdv;
-	pud_t	pudv;
+	pud_t	*puda, pudv;
 	pmd_t	*pmda, pmdv;
 	pte_t 	*ptea, ptev;
 
@@ -259,9 +279,13 @@ vtop_arm64(unsigned long vaddr)
 		return NOT_PADDR;
 	}
 
-	pudv.pgd = pgdv;
+	puda = pud_offset(pgda, &pgdv, vaddr);
+	if (!readmem(VADDR, (unsigned long long)puda, &pudv, sizeof(pudv))) {
+		ERRMSG("Can't read pud\n");
+		return NOT_PADDR;
+	}
 
-	pmda = pmd_offset(&pudv, vaddr);
+	pmda = pmd_offset(puda, &pudv, vaddr);
 	if (!readmem(VADDR, (unsigned long long)pmda, &pmdv, sizeof(pmdv))) {
 		ERRMSG("Can't read pmd\n");
 		return NOT_PADDR;
