@@ -136,6 +136,13 @@ static int calculate_plat_config(void)
 {
 	va_bits = NUMBER(VA_BITS);
 
+	/*
+	 * RHELSA7.3 only, because that has older version of kdump patches
+	 * which does not have va_bits in vmcoreinfo
+	 */
+	if (va_bits == NOT_FOUND_NUMBER)
+		va_bits = 42;
+
 	/* derive pgtable_level as per arch/arm64/Kconfig */
 	if ((PAGESIZE() == SZ_16K && va_bits == 36) ||
 			(PAGESIZE() == SZ_64K && va_bits == 42)) {
@@ -164,7 +171,28 @@ get_kvbase_arm64(void)
 int
 get_phys_base_arm64(void)
 {
+	unsigned long phys_base = ULONG_MAX;
+	unsigned long long phys_start;
+	int i;
+
 	info->phys_base = NUMBER(PHYS_OFFSET);
+	if (info->phys_base == NOT_FOUND_NUMBER) {
+		/*
+		 * RHELSA7.3 only, because that has older version of kdump
+		 * patches which does not have PHYS_OFFSET in vmcoreinfo
+		 */
+		for (i = 0; get_pt_load(i, &phys_start,
+					NULL, NULL, NULL); i++) {
+			if (phys_start < phys_base)
+				phys_base = phys_start;
+		}
+
+		if (phys_base == ULONG_MAX) {
+			ERRMSG("Can't determine phys_base\n");
+			return FALSE;
+		}
+		info->phys_base = phys_base;
+	}
 
 	DEBUG_MSG("phys_base    : %lx\n", info->phys_base);
 
