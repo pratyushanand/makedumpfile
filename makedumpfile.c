@@ -7143,7 +7143,7 @@ out:
 
 int
 write_elf_load_segment(struct cache_data *cd_page, unsigned long long paddr,
-		       off_t off_memory, long long size)
+		       off_t off_memory, long long size, struct cycle *cycle)
 {
 	long page_size = info->page_size;
 	long long bufsz_write;
@@ -7167,10 +7167,23 @@ write_elf_load_segment(struct cache_data *cd_page, unsigned long long paddr,
 		else
 			bufsz_write = size;
 
-		if (read(info->fd_memory, buf, bufsz_write) != bufsz_write) {
-			ERRMSG("Can't read the dump memory(%s). %s\n",
-			    info->name_memory, strerror(errno));
-			return FALSE;
+		if (!is_dumpable(info->bitmap2, paddr_to_pfn(paddr), cycle)) {
+			unsigned k;
+			unsigned long *p = (unsigned long *)buf;
+			for (k = 0; k < info->page_size; k += sizeof(unsigned long)) {
+				*p++ = FILL_EXCLUDED_PAGES_VALUE;
+			}
+			if (lseek(info->fd_memory, bufsz_write, SEEK_CUR) < 0) {
+				ERRMSG("Can't seek the dump memory(%s). %s\n",
+				    info->name_memory, strerror(errno));
+				return FALSE;
+			}
+		} else {
+			if (read(info->fd_memory, buf, bufsz_write) != bufsz_write) {
+				ERRMSG("Can't read the dump memory(%s). %s\n",
+				    info->name_memory, strerror(errno));
+				return FALSE;
+			}
 		}
 		filter_data_buffer((unsigned char *)buf, paddr, bufsz_write);
 		paddr += bufsz_write;
@@ -7435,7 +7448,7 @@ write_elf_pages_cyclic(struct cache_data *cd_header, struct cache_data *cd_page)
 				 */
 				if (load.p_filesz)
 					if (!write_elf_load_segment(cd_page, paddr,
-								    off_memory, load.p_filesz))
+								    off_memory, load.p_filesz, &cycle))
 						return FALSE;
 
 				load.p_paddr += load.p_memsz;
@@ -7477,7 +7490,7 @@ write_elf_pages_cyclic(struct cache_data *cd_header, struct cache_data *cd_page)
 		 */
 		if (load.p_filesz)
 			if (!write_elf_load_segment(cd_page, paddr,
-						    off_memory, load.p_filesz))
+						    off_memory, load.p_filesz, &cycle))
 				return FALSE;
 
 		off_seg_load += load.p_filesz;

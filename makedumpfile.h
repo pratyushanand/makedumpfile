@@ -223,6 +223,7 @@ isAnon(unsigned long mapping)
 #define FILENAME_BITMAP		"kdump_bitmapXXXXXX"
 #define FILENAME_STDOUT		"STDOUT"
 #define MAP_REGION		(4096*1024)
+#define FILL_EXCLUDED_PAGES_VALUE   (0xDEAD9A6EDEAD9A6EUL)
 
 /*
  * Minimam vmcore has 2 ProgramHeaderTables(PT_NOTE and PT_LOAD).
